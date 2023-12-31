@@ -8,34 +8,16 @@ const { createClient } = require('redis');
 app.get("/:username", async (req, res) => {
     const timeAtStart = Date.now();
     try {
-
-        // const client = await createClient()
-        //     .on('error', err => console.log('Redis Client Error', err))
-        //     .connect();
-
-        // const { username } = req.params;
-        // const response = await client.GET(username);
-        // if(response){
-        //     console.log("cache hit");
-        //     return res.json(JSON.parse(response));
-        // }
-        // console.log("cache miss");
-        // const data = await fetch(`${githubAPI}${username}`)
-        // .then(res => res.json())
-        // .then(data => {
-        //     client.SETEX(username, 3600, JSON.stringify(data));
-        //     return res.json({username , data});
-        // })
-
-
-
-        const { username} = req.params;
-        const client = await createClient()
-        .on('error', err => console.log('Redis Client Error', err))
-        .connect();
+        const { username } = req.params;
+        const client = await createClient({
+            host: 'redis-server',
+            port: 6379
+        })
+            .on('error', err => console.log('Redis Client Error', err))
+            .connect();
 
         let cachedResponse = await client.GET(username);
-        if(cachedResponse){
+        if (cachedResponse) {
             console.log("CACHE HIT");
             const timeAtEnd = Date.now();
             const timeTaken = timeAtEnd - timeAtStart;
@@ -43,7 +25,7 @@ app.get("/:username", async (req, res) => {
             return res.status(200).json({
                 success: true,
                 msg: `Github user ${username} has ${cachedResponse.followers} followers`,
-                cache : "hit",
+                cache: "hit",
                 timeTaken: `${timeTaken}ms`,
             })
         }
@@ -51,13 +33,13 @@ app.get("/:username", async (req, res) => {
         console.log("CACHE MISS");
         const fetchedResponse = await fetch(`${githubAPI}${username}`);
         const data = await fetchedResponse.json();
-        await client.SETEX(username,3600,JSON.stringify(data));
+        await client.SETEX(username, 3600, JSON.stringify(data));
         const timeAtEnd = Date.now();
         const timeTaken = timeAtEnd - timeAtStart;
         return res.status(200).json({
             success: true,
             msg: `Github user ${username} has ${data.followers} followers`,
-            cache : "miss",
+            cache: "miss",
             timeTaken: `${timeTaken}ms`,
         });
     } catch (error) {
@@ -67,5 +49,12 @@ app.get("/:username", async (req, res) => {
 })
 
 
+app.use("*", (req, res) => {
+    res.status(404).json({
+        msg : "try the endpoint /:username"
+    })
+})
 
-app.listen(port, () => console.log("server is on :", port));
+
+
+app.listen(port, () => console.log("server is on :", port))
